@@ -1,0 +1,76 @@
+---
+- name: Gather Cisco IOS Device Information
+  hosts: Switch1
+  gather_facts: no
+  connection: network_cli
+
+  tasks:
+    - name: Gather device facts
+      cisco.ios.ios_facts:
+        gather_subset:
+          - all
+      register: device_facts
+
+    - name: Display device hostname
+      debug:
+        msg: "Hostname: {{ ansible_net_hostname }}"
+
+    - name: Display IOS version
+      debug:
+        msg: "IOS Version: {{ ansible_net_version }}"
+
+    - name: Display device model
+      debug:
+        msg: "Model: {{ ansible_net_model }}"
+
+    - name: Display serial number
+      debug:
+        msg: "Serial: {{ ansible_net_serialnum }}"
+
+    - name: Get running configuration
+      cisco.ios.ios_command:
+        commands:
+          - show running-config
+      register: running_config
+
+    - name: Get interface status
+      cisco.ios.ios_command:
+        commands:
+          - show ip interface brief
+      register: interface_status
+
+    - name: Display interface status
+      debug:
+        var: interface_status.stdout_lines
+
+    - name: Get VLAN information
+      cisco.ios.ios_command:
+        commands:
+          - show vlan brief
+      register: vlan_info
+      ignore_errors: yes
+
+    - name: Display VLAN information
+      debug:
+        var: vlan_info.stdout_lines
+      when: vlan_info is succeeded
+
+    - name: Get routing table
+      cisco.ios.ios_command:
+        commands:
+          - show ip route
+      register: routing_table
+
+    - name: Display routing table
+      debug:
+        var: routing_table.stdout_lines
+
+    - name: Get ARP table
+      cisco.ios.ios_command:
+        commands:
+          - show ip arp
+      register: arp_table
+
+    - name: Display ARP entries count
+      debug:
+        msg: "Total ARP entries: {{ arp_table.stdout_lines[0] | length }}"

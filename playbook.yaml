@@ -11,6 +11,10 @@
           - all
       register: device_facts
 
+    - name: Display gather_facts
+      debug:
+        var: device_facts
+
     - name: Display device hostname
       debug:
         msg: "Hostname: {{ ansible_net_hostname }}"

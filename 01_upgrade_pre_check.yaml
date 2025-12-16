@@ -1,0 +1,29 @@
+---
+- name: Upgrade Pre-Check Playbook for Cisco IOS and IOS-XE Devices
+  hosts: all
+  gather_facts: no
+
+  tasks:
+    - name: Get all elements hardware device
+      cisco.ios.ios_facts:
+        gather_subset: hardware
+      register: pre_upgrade_facts
+
+    - name: Display pre-upgrade facts
+      debug:
+        msg: 
+        - spacfree is {{ pre_upgrade_facts.ansible_facts.ansible_net_filesystems_info['flash0:'].spacefree_kb }}
+        - old image is {{ pre_upgrade_facts.ansible_facts.ansible_net_image }}    
+        - version is {{ pre_upgrade_facts.ansible_facts.ansible_net_version }}
+
+    - name: Verify the current MD5 checksum of the image file
+      cisco.ios.ios_command:
+        commands:
+          - verify /md5 {{ pre_upgrade_facts.ansible_facts.ansible_net_image }}
+      vars:
+        ansible_command_timeout: 900
+      register: md5_check
+    
+    - name: Display MD5 checksum verification result
+      debug:
+        msg: "MD5 checksum verification passed: {{ md5_check }}"

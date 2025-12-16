@@ -2,6 +2,14 @@
 - name: Upgrade Pre-Check Playbook for Cisco IOS and IOS-XE Devices
   hosts: all
   gather_facts: no
+  vars:
+    ansible_command_timeout: 1800
+    scp_server: "{{ scp_server }}"
+    scp_username: "{{ scp_username }}"
+    scp_password: "{{ scp_password }}"
+    new_ios_version: "{{ new_ios_version }}"
+    new_ios_image: "{{ new_image_name }}"
+    new_image_md5: "{{ new_image_md5 }}"
 
   tasks:
     - name: Get all elements hardware device
@@ -11,19 +19,28 @@
 
     - name: Display pre-upgrade facts
       debug:
-        msg: 
-        - spacfree is {{ pre_upgrade_facts.ansible_facts.ansible_net_filesystems_info['flash0:'].spacefree_kb }}
-        - old image is {{ pre_upgrade_facts.ansible_facts.ansible_net_image }}    
-        - version is {{ pre_upgrade_facts.ansible_facts.ansible_net_version }}
+        var: pre_upgrade_facts
 
-    - name: Verify the current MD5 checksum of the image file
-      cisco.ios.ios_command:
-        commands:
-          - verify /md5 {{ pre_upgrade_facts.ansible_facts.ansible_net_image }}
-      vars:
-        ansible_command_timeout: 900
-      register: md5_check
-    
-    - name: Display MD5 checksum verification result
+    - name: Check current IOS version
+      ansible.builtin.set_fact:    
+        current_ios_version: "{{ pre_upgrade_facts.ansible_facts.ansible_net_version }}"
+
+    - name: Display current IOS version
       debug:
-        msg: "MD5 checksum verification passed: {{ md5_check }}"
+        msg: 
+          - "Current IOS Version: {{ current_ios_version }}"
+          - "New IOS Version: {{ new_ios_version }}"
+
+    - name: Stop Playbook if current version is same as new version
+      ansible.builtin.fail:
+        msg: "Current IOS version {{ current_ios_version }} is the same as the new version {{ new_ios_version }}. Upgrade not required."
+      when: current_ios_version == new_ios_version
+
+    - name: Check available flash memory
+      cisco.ios.ios_facts:
+        gather_subset: storage
+      register: storage_facts
+
+    - name: Display storage facts
+      debug:
+        var: storage_facts

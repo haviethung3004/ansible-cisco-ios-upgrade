@@ -36,6 +36,7 @@
         msg: "Current IOS version {{ current_ios_version }} is the same as the new version {{ new_ios_version }}. Upgrade not required."
       when: current_ios_version == new_ios_version
 
+
     - name: Check available flash memory
       cisco.ios.ios_facts:
         gather_subset: storage

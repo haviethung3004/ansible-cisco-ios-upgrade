@@ -74,14 +74,49 @@
           - config-register 0x2102
       when: current_register != '0x2102'
 
-    - name: Copy new IOS image to device using SCP
+    - name: Check if new IOS image already exists on device
       cisco.ios.ios_command:
         commands:
-          - command: "copy scp://{{ scp_username }}:{{ scp_password }}@{{ scp_server }}/{{ new_ios_image }} flash:/{{ new_ios_image }}"
-            prompt: 'Destination filename \ \[{{ new_ios_image }}\]?'
-            answer: '{{ new_ios_image }}'
-      register: image_copy_result
+          - "show flash: | include {{ new_ios_image }}"
+      register: image_check
+      failed_when: false
 
-    - name: Display image copy result
+    - name: Handle IOS image copy and verification
+      block:
+        - name: Copy new IOS image to device using SCP
+          cisco.ios.ios_command:
+            commands:
+              - command: 'copy scp://{{ scp_username }}:{{ scp_password }}@{{ scp_server }}/{{ new_ios_image }} flash:/{{ new_ios_image }}'
+                prompt: 'Destination filename \[{{ new_ios_image }}\]?'
+                answer: '{{ new_ios_image }}'
+          register: image_copy_result
+          when: image_check.stdout[0] == ""
+
+        - name: Check if image copy was successful
+          cisco.ios.ios_command:
+            commands:
+              - "show flash: | include {{ new_ios_image }}"
+          register: image_check_after
+
+        - name: Fail if image copy was unsuccessful
+          ansible.builtin.fail:
+            msg: "Image copy failed. The new IOS image {{ new_ios_image }} not found on device."
+          when: image_check_after.stdout[0] == ""
+      when: image_check.stdout[0] == ""
+
+    - name: Display message if image already exists
       debug:
-        var: image_copy_result.stdout_lines
+        msg: "The new IOS image {{ new_ios_image }} already exists on the device. Skipping copy step."
+      when: image_check.stdout[0] != ""
+    
+    - name: Verify MD5 checksum of the new IOS image
+      cisco.ios.ios_command:
+        commands:
+          - "verify /md5 flash:/{{ new_ios_image }} {{ new_image_md5 }}"
+      register: md5_result
+
+    - name: Display MD5 verification result
+      debug:
+        var: md5_result.stdout[0]
+
+    

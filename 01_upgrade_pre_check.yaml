@@ -36,12 +36,52 @@
         msg: "Current IOS version {{ current_ios_version }} is the same as the new version {{ new_ios_version }}. Upgrade not required."
       when: current_ios_version == new_ios_version
 
+    - name: Check available memory
+      ansible.builtin.set_fact:
+        avl_mem: "{{ pre_upgrade_facts['ansible_facts']['ansible_net_filesystems_info']['bootflash:']['spacefree_kb'] }}"
 
-    - name: Check available flash memory
-      cisco.ios.ios_facts:
-        gather_subset: storage
-      register: storage_facts
-
-    - name: Display storage facts
+    - name: Display available memory
       debug:
-        var: storage_facts
+        msg: "Available memory: {{ (avl_mem | int / 1024 / 1024) | round(2) }} GB"
+
+    - name: Stop playbook if memory is insufficient for new image
+      block:
+        - ansible.builtin.fail:
+            msg: "Insufficient memory: Available memory is {{ avl_mem }} KB, which is less than required for new image."
+          when: avl_mem | int < 2000000  # Assuming 2GB is required for the new image
+      rescue:
+        - name: Display insufficient memory warning
+          debug:
+            msg: "Warning: Available memory is less than required for the new image. Please free up space and try again."
+
+    - name: Check current register status
+      cisco.ios.ios_command:
+        commands:
+          - show version | include Configuration register
+      register: reg_status
+
+    - name: Display current register status
+      debug:
+        msg: "Current Configuration Register: {{ reg_status.stdout[0].split()[-1] }}"
+
+    - name: Set fact for current register
+      ansible.builtin.set_fact:
+        current_register: "{{ reg_status.stdout[0].split()[-1] }}"
+
+    - name: Change to boot from flash if register is not 0x2102
+      cisco.ios.ios_config:
+        lines:
+          - config-register 0x2102
+      when: current_register != '0x2102'
+
+    - name: Copy new IOS image to device using SCP
+      cisco.ios.ios_command:
+        commands:
+          - command: "copy scp://{{ scp_username }}:{{ scp_password }}@{{ scp_server }}/{{ new_ios_image }} flash:/{{ new_ios_image }}"
+            prompt: 'Destination filename \ \[{{ new_ios_image }}\]?'
+            answer: '{{ new_ios_image }}'
+      register: image_copy_result
+
+    - name: Display image copy result
+      debug:
+        var: image_copy_result.stdout_lines

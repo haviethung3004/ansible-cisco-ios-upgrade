@@ -90,18 +90,11 @@
                 prompt: 'Destination filename \[{{ new_ios_image }}\]?'
                 answer: '{{ new_ios_image }}'
           register: image_copy_result
-          when: image_check.stdout[0] == ""
 
-        - name: Check if image copy was successful
-          cisco.ios.ios_command:
-            commands:
-              - "show flash: | include {{ new_ios_image }}"
-          register: image_check_after
+        - name: Display image copy success message
+          debug:
+            msg: "Image copy successful: {{ image_copy_result.stdout[0] }}"
 
-        - name: Fail if image copy was unsuccessful
-          ansible.builtin.fail:
-            msg: "Image copy failed. The new IOS image {{ new_ios_image }} not found on device."
-          when: image_check_after.stdout[0] == ""
       when: image_check.stdout[0] == ""
 
     - name: Display message if image already exists
@@ -117,6 +110,18 @@
 
     - name: Display MD5 verification result
       debug:
-        var: md5_result.stdout[0]
+        var: md5_result
 
+    - name: Fetch MD5_result
+      ansible.builtin.set_fact:
+        caculated_md5_hash: "{{ md5_result.stdout[0] | regex_findall('.*\\s(\\S+)') }}"
+
+    - name: Display calculated MD5 hash
+      debug:
+        msg: "Calculated MD5 Hash: {{ caculated_md5_hash[0] }}"
+
+    - name: Fail if MD5 checksum does not match
+      ansible.builtin.fail:
+        msg: "MD5 checksum mismatch: Expected {{ new_image_md5 }}, but got {{ caculated_md5_hash[0] }}"
+      when: caculated_md5_hash[0] != new_image_md5
     

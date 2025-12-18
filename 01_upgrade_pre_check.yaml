@@ -93,7 +93,18 @@
 
         - name: Display image copy success message
           debug:
-            msg: "Image copy successful: {{ image_copy_result.stdout[0] }}"
+            msg: "Image copy successful: {{ image_copy_result }}"
+
+        - name: Check if image copy was successful
+          cisco.ios.ios_command:
+            commands:
+              - "show flash: | include {{ new_ios_image }}"
+          register: post_copy_check
+          ignore_errors: yes
+        
+        - name: Diplay post copy check result
+          debug:
+            var: post_copy_check
 
       when: image_check.stdout[0] == ""
 
@@ -118,10 +129,12 @@
 
     - name: Display calculated MD5 hash
       debug:
-        msg: "Calculated MD5 Hash: {{ caculated_md5_hash[0] }}"
+        msg: "Calculated MD5 Hash: {{ caculated_md5_hash[1] }}"
 
-    - name: Fail if MD5 checksum does not match
-      ansible.builtin.fail:
-        msg: "MD5 checksum mismatch: Expected {{ new_image_md5 }}, but got {{ caculated_md5_hash[0] }}"
-      when: caculated_md5_hash[0] != new_image_md5
+    - name: Compare MD5 checksum
+      ansible.builtin.assert:
+        that:
+          - "{{ caculated_md5_hash[1] == new_image_md5 }}"
+        fail_msg: "MD5 checksum verification failed. The image may be corrupted."
+        success_msg: "MD5 checksum verification successful. The image is valid."
     

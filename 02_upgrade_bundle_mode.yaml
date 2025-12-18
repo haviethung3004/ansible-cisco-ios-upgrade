@@ -1,0 +1,60 @@
+---
+- name: Upgrade Pre-Check Playbook for Cisco IOS and IOS-XE Devices
+  hosts: all
+  gather_facts: yes
+  vars:
+    ansible_command_timeout: 30
+    scp_server: "{{ scp_server }}"
+    scp_username: "{{ scp_username }}"
+    scp_password: "{{ scp_password }}"
+    new_ios_version: "{{ new_ios_version }}"
+    new_ios_image: "{{ new_image_name }}"
+    new_image_md5: "{{ new_image_md5 }}"
+    
+  tasks:
+    - name: Collect facts to get system information
+      ansible.builtin.setup:
+        filter:
+          - ansible_date_time
+
+    - name: Display collected facts
+      debug:
+        var: ansible_date_time
+
+
+    - name: Backup configuration before upgrade
+      cisco.ios.ios_command:
+        commands: 
+          - command: copy running-config startup-config
+            prompt: 'Destination filename \[startup-config\]?'
+            answer: "\n"
+      register: backup_result
+
+    - name: set backup result fact
+      ansible.builtin.set_fact:
+        backup_result_suceess: "{{ backup_result['stdout_lines'][0][2] }}"
+
+    - name: Send configuration backup to SCP server
+      cisco.ios.ios_command:
+        commands:
+          - command: "copy startup-config scp://{{ scp_username }}:{{ scp_password }}@{{ scp_server }}/{{ inventory_hostname }}_config_{{ ansible_date_time.date }}.cfg"
+            prompt: 
+              - 'Address or name of remote host .*'
+              - 'Destination username .*'
+              - 'Destination filename .*'
+            answer: 
+              - "\n"
+              - "\n"
+              - "\n"
+      register: scp_backup_result
+
+    - name: Display SCP backup result
+      debug:
+        var: scp_backup_result
+
+    - name: Check backup success
+      ansible.builtin.assert:
+        that:
+          - "{{'[OK]' in  backup_result_suceess }}"
+        fail_msg: "Configuration backup failed. Aborting upgrade process."
+        success_msg: "Configuration backup successful."

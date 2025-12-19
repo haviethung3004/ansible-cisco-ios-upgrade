@@ -95,6 +95,9 @@
           debug:
             msg: "Image copy successful: {{ image_copy_result }}"
 
+        - name: Reset connection to remove buffered output
+          ansible.builtin.meta: reset_connection
+
         - name: Check if image copy was successful
           cisco.ios.ios_command:
             commands:

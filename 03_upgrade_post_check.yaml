@@ -1,0 +1,36 @@
+---
+- name: Post-check after IOS Upgrade Playbook
+  hosts: all
+  gather_facts: false
+  vars:
+    ansible_command_timeout: 30
+    scp_server: "{{ scp_server }}"
+    scp_username: "{{ scp_username }}"
+    scp_password: "{{ scp_password }}"
+    new_ios_version: "{{ new_ios_version }}"
+    new_ios_image: "{{ new_image_name }}"
+    new_image_md5: "{{ new_image_md5 }}"
+  tasks:
+    - name: Gather IOS version after upgrade
+      cisco.ios.ios_facts:
+        gather_subset: hardware
+      register: post_upgrade_facts
+    
+    - name: Validate IOS version
+      ansible.builtin.assert:
+        that:
+          - "'{{ post_upgrade_facts.ansible_facts.ansible_net_version }}' == '{{ new_ios_version }}'"
+        fail_msg: "IOS version after upgrade does not match expected version."
+        success_msg: "IOS version after upgrade matches expected version."
+
+    - name: Get up time after upgrade
+      cisco.ios.ios_command:
+        commands:
+          - show version | include uptime
+      register: uptime_result
+
+    - name: Display device uptime after upgrade
+      debug:
+        var: uptime_result.stdout_lines
+
+    

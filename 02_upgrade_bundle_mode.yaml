@@ -1,5 +1,5 @@
 ---
-- name: Upgrade Pre-Check Playbook for Cisco IOS and IOS-XE Devices
+- name: Upgrade Bundle Mode IOS Device
   hosts: all
   gather_facts: yes
   vars:

@@ -99,7 +99,7 @@
     - name: Check if versions are as expected
       ansible.builtin.assert:
         that:
-          - "'{{ new_ios_version }}' == '{{ ios_version }}'"
+          - "'{{ new_ios_version == ios_version }}'"
         fail_msg: "IOS version after upgrade does not match expected version."
         success_msg: "IOS version after upgrade matches expected version."
 

@@ -19,7 +19,7 @@
     - name: Validate IOS version
       ansible.builtin.assert:
         that:
-          - "'{{ post_upgrade_facts.ansible_facts.ansible_net_version }}' == '{{ new_ios_version }}'"
+          - "{{ post_upgrade_facts.ansible_facts.ansible_net_version == new_ios_version }}"
         fail_msg: "IOS version after upgrade does not match expected version."
         success_msg: "IOS version after upgrade matches expected version."
 

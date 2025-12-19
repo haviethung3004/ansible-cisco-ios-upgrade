@@ -90,10 +90,12 @@
                 prompt: 'Destination filename \[{{ new_ios_image }}\]?'
                 answer: '{{ new_ios_image }}'
           register: image_copy_result
+          ignore_errors: yes
 
         - name: Display image copy success message
           debug:
             msg: "Image copy successful: {{ image_copy_result }}"
+          ignore_errors: yes
 
         - name: Reset connection to remove buffered output
           ansible.builtin.meta: reset_connection

@@ -1,338 +1,410 @@
-# Cisco IOS/IOS-XE Upgrade Automation Project
+# Cisco IOS/IOS-XE Upgrade Automation - Ansible Automation Platform Project
 
-This Ansible project automates the process of upgrading Cisco IOS and IOS-XE devices with comprehensive pre-checks, upgrade execution, and post-verification steps.
+An enterprise-grade Ansible project for automating Cisco network device upgrades using **Red Hat Ansible Automation Platform (AAP)**. This project provides a comprehensive, safe, and repeatable workflow for upgrading Cisco IOS and IOS-XE devices with extensive validation, backup, and recovery capabilities.
 
 ## Overview
 
-This project provides a complete workflow for safely upgrading Cisco network devices including:
-- Pre-upgrade checks and validations
-- Automated image transfer via SCP
-- MD5 verification
-- Configuration backup
-- Safe upgrade execution
-- Post-upgrade verification
+This AAP-integrated project automates the complete lifecycle of Cisco device upgrades:
+
+- **Pre-Upgrade Validation** - Hardware verification, memory checks, image readiness
+- **Secure Image Transfer** - SCP-based image delivery with integrity verification
+- **Configuration Management** - Automated backup and boot configuration
+- **Upgrade Execution** - Orchestrated device reload with rollback capability
+- **Post-Upgrade Verification** - System health and version validation
 
 ## Project Structure
 
 ```
 network_project/
-├── 01_upgrade_pre_check.yaml    # Pre-upgrade validation and image copy
-├── 02_upgrade.yaml              # Backup and upgrade execution
-├── 03_upgrade_post_check.yaml   # Post-upgrade verification
-├── playbook.yaml                # Device information gathering
+├── 01_upgrade_pre_check.yaml         # Pre-upgrade validation and image copy
+├── 02_upgrade_bundle_mode.yaml       # Bundle mode upgrade execution
+├── 02_upgrade_install_mode.yaml      # Install mode upgrade execution
+├── 03_upgrade_post_check.yaml        # Post-upgrade verification
+├── playbook.yaml                     # Device information gathering
 ├── inventory/
-│   └── host                     # Inventory file for target devices
+│   └── host                          # Inventory definitions
 ├── collections/
-│   ├── requirements.yaml        # Ansible collection dependencies
-│   └── ansible_collections/
-├── backup/                      # Configuration backups
-└── images/                      # IOS images storage
+│   ├── requirements.yaml             # Ansible collection dependencies
+│   └── ansible_collections/          # Installed collections
+├── backup/                           # Timestamped configuration backups
+├── images/                           # IOS image repository
+└── README.md                         # This documentation
 ```
 
 ## Prerequisites
 
-### Required Software
-- AWX (Ansible Tower) installed and configured
-- Python 3.6+ on AWX execution nodes
-- sshpass (for SCP transfers) on AWX execution nodes
+### Ansible Automation Platform Setup
 
-### Ansible Collections
-- cisco.ios
+- **AAP Version:** 2.0+ (Controller)
+- **Execution Node:** Python 3.8+, SSH client, sshpass
+- **Collections:** Automatically installed from `collections/requirements.yaml`
+- **Network:** SSH (port 22) and SCP connectivity to Cisco devices
 
-Collections are automatically installed from `collections/requirements.yaml` when the project is synced in AWX.
+### Required Ansible Collections
 
-### Network Requirements
-- SSH access to Cisco devices
-- SCP server for image hosting
-- Network connectivity between Ansible controller and devices
+```yaml
+# collections/requirements.yaml
+collections:
+  - cisco.ios
+```
 
-## Configuration
+These are automatically installed when the project is synced in AAP Controller.
 
-### Inventory Setup in AWX
+### Network Access Requirements
 
-1. **Create Inventory** in AWX:
-   - Name: `Cisco Network Devices`
-   
-2. **Add Hosts** to inventory:
-   ```ini
-   [cisco_devices]
-   router1 ansible_host=192.168.1.1
-   switch1 ansible_host=192.168.1.2
-   
-   [cisco_devices:vars]
-   ansible_network_os=cisco.ios.ios
-   ansible_connection=network_cli
-   ansible_become=yes
-   ansible_become_method=enable
+- SSH connectivity to all Cisco devices (TCP 22)
+- SCP connectivity to image repository (TCP 22)
+- Network connectivity between AAP execution nodes and devices
+- Minimum 2GB free flash memory on target devices
+
+## Configuration in Ansible Automation Platform
+
+### 1. Create/Update Project
+
+1. Navigate to **Administration > Projects**
+2. Click **Create project**
+3. Configure:
+   - **Name:** `Cisco IOS Upgrade`
+   - **Organization:** Your organization
+   - **Execution Environment:** Default (or custom with required collections)
+   - **Source Control Type:** Git
+   - **Source Control URL:** Your repository URL
+   - **Source Control Branch:** `main`
+
+### 2. Create Inventory
+
+1. Navigate to **Resources > Inventories**
+2. Click **Create inventory**
+3. Configure:
+   - **Name:** `Cisco Network Devices`
+   - **Organization:** Your organization
+   - **Execution Environment:** Default
+
+4. Add hosts to inventory - navigate to **Hosts** and add:
+
+```ini
+[cisco_ios_devices]
+router1 ansible_host=192.168.1.1
+switch1 ansible_host=192.168.1.2
+switch2 ansible_host=192.168.1.3
+
+[cisco_ios_devices:vars]
+ansible_network_os=cisco.ios.ios
+ansible_connection=network_cli
+ansible_become=yes
+ansible_become_method=enable
+ansible_command_timeout=10800
+```
+
+### 3. Create Credentials
+
+#### Device Machine Credential
+
+1. Navigate to **Resources > Credentials**
+2. Click **Create credential**
+3. Configure:
+   - **Name:** `Cisco Device Credentials`
+   - **Credential Type:** `Machine`
+   - **Username:** `admin` (or your device username)
+   - **Password:** Your device password
+   - **Privilege Escalation Password:** Your enable password (if required)
+
+#### SCP Server Credential (Optional)
+
+Create a Custom Credential Type for SCP variables:
+
+1. Navigate to **Administration > Credential Types**
+2. Click **Create credential type**
+3. Input Configuration:
+   ```yaml
+   fields:
+     - id: scp_server
+       type: string
+       label: SCP Server IP/Hostname
+     - id: scp_username
+       type: string
+       label: SCP Username
+     - id: scp_password
+       type: string
+       label: SCP Password
+       secret: true
+   ```
+4. Injector Configuration:
+   ```yaml
+   extra_vars:
+     scp_server: '{{ scp_server }}'
+     scp_username: '{{ scp_username }}'
+     scp_password: '{{ scp_password }}'
    ```
 
-3. **Store Credentials** in AWX:
-   - Create Machine Credential for device access
-   - Username: admin
-   - Password: (device password)
+### 4. Define Extra Variables
 
-### Required Variables
+Define these variables for job launches (via survey or extra vars):
 
-Define these variables in AWX as **Extra Variables** when launching Job Templates:
-
-| Variable | Description | Example |
-|----------|-------------|---------|
-| `scp_server` | SCP server IP/hostname | `10.0.0.100` |
-| `scp_username` | SCP server username | `admin` |
-| `scp_password` | SCP server password | `SecurePass123` |
-| `new_ios_version` | Target IOS version | `17.9.4a` |
-| `new_image_name` | IOS image filename | `c9300-universalk9.17.09.04a.SPA.bin` |
-| `new_image_md5` | MD5 checksum of image | `a1b2c3d4e5f6...` |
+| Variable | Type | Required | Example |
+|----------|------|----------|---------|
+| `scp_server` | string | Yes | `10.0.0.100` |
+| `scp_username` | string | Yes | `upload_user` |
+| `scp_password` | string | Yes | `SecurePass123` |
+| `new_ios_version` | string | Yes | `17.9.4a` |
+| `new_image_name` | string | Yes | `c9300-universalk9.17.09.04a.SPA.bin` |
+| `new_image_md5` | string | Yes | `a1b2c3d4e5f6...` |
 
 ## Playbooks
 
 ### 1. Pre-Upgrade Check (`01_upgrade_pre_check.yaml`)
 
-**Purpose:** Validates device readiness and prepares for upgrade
+**Purpose:** Validates device readiness, transfers image, and verifies integrity
 
-**Tasks:**
-- Gathers hardware facts
-- Checks current IOS version
-- Validates available flash memory (minimum 2GB required)
-- Verifies configuration register (sets to 0x2102 if needed)
-- Checks if new image already exists on device
-- Copies new IOS image via SCP (if not present)
-- Verifies MD5 checksum of image
+**Key Tasks:**
+- Gathers hardware facts and current configuration
+- Validates current IOS version (prevents redundant upgrades)
+- Checks available flash memory (minimum 2GB required)
+- Verifies/sets configuration register (0x2102 for boot from flash)
+- Transfers new IOS image via SCP (if not already present)
+- Validates MD5 checksum against provided hash
+- Generates comprehensive pre-upgrade report
 
-**AWX Setup:**
-1. Create Job Template: `Cisco IOS Pre-Upgrade Check`
-2. Playbook: `01_upgrade_pre_check.yaml`
-3. Inventory: Select your Cisco devices inventory
-4. Credentials: Device machine credential
-5. Extra Variables:
-   ```yaml
-   scp_server: 10.0.0.100
-   scp_username: admin
-   scp_password: SecurePass123
-   new_ios_version: 17.9.4a
-   new_image_name: c9300-universalk9.17.09.04a.SPA.bin
-   new_image_md5: a1b2c3d4e5f6...
+**AAP Job Template Setup:**
+
+1. Navigate to **Resources > Templates > Create job template**
+2. Configure:
+   - **Name:** `Cisco IOS - Pre-Upgrade Check`
+   - **Playbook:** `01_upgrade_pre_check.yaml`
+   - **Inventory:** `Cisco Network Devices`
+   - **Credentials:** `Cisco Device Credentials`
+   - **Execution Environment:** Default (or custom)
+   - **Extra Variables:** (see survey below)
+   - **Verbosity:** 2 (Verbose)
+
+3. Create Survey for user-friendly variable input:
+   ```
+   Question 1: SCP Server IP (text)
+   Question 2: SCP Username (text)
+   Question 3: SCP Password (password)
+   Question 4: New IOS Version (text)
+   Question 5: New Image Name (text)
+   Question 6: New Image MD5 (text)
    ```
 
-### 2. Upgrade Execution (`02_upgrade.yaml`)
+### 2. Upgrade Execution - Bundle Mode (`02_upgrade_bundle_mode.yaml`)
 
-**Purpose:** Backs up configuration and prepares for reload
+**Purpose:** Traditional unified image upgrade method
 
-**Tasks:**
-- Creates timestamped configuration backup
+**Key Tasks:**
+- Creates timestamped backup of running configuration
 - Transfers backup to SCP server
-- Sets boot variable to new image
-- Saves configuration
+- Sets boot system variable to new image
+- Saves configuration changes
+- Prepares device for reload
 
-**AWX Setup:**
-1. Create Job Template: `Cisco IOS Upgrade Execution`
-2. Playbook: `02_upgrade.yaml`
-3. Inventory: Select your Cisco devices inventory
-4. Credentials: Device machine credential
-5. Extra Variables:
-   ```yaml
-   scp_server: 10.0.0.100
-   scp_username: admin
-   scp_password: SecurePass123
-   new_image_name: c9300-universalk9.17.09.04a.SPA.bin
-   ```
+**AAP Job Template Setup:**
 
-### 3. Post-Upgrade Verification (`03_upgrade_post_check.yaml`)
+1. **Name:** `Cisco IOS - Upgrade (Bundle Mode)`
+2. **Playbook:** `02_upgrade_bundle_mode.yaml`
+3. **Dependencies:** Execute after successful pre-upgrade check
+4. **Survey Variables:**
+   - SCP Server IP
+   - SCP Username
+   - SCP Password
+   - New Image Name
+   - Backup Reason (optional)
 
-**Purpose:** Validates successful upgrade
+### 3. Upgrade Execution - Install Mode (`02_upgrade_install_mode.yaml`)
 
-**Tasks:**
-- (To be implemented)
-- Verify new IOS version
-- Check system stability
-- Validate interface status
-- Confirm routing protocols
+**Purpose:** Modern install mode upgrade (IOS-XE 16.12+)
 
-### 4. Device Information (`playbook.yaml`)
+**Key Tasks:**
+- Prepares device for install mode operation
+- Manages ROMMON fallback image
+- Executes install add/commit workflow
+- Validates new package installation
+- Performs automated reload if configured
 
-**Purpose:** Gather comprehensive device information
+**AAP Job Template Setup:**
 
-**Tasks:**
-- Collects device facts
-- Displays hostname, version, model, serial
+1. **Name:** `Cisco IOS - Upgrade (Install Mode)`
+2. **Playbook:** `02_upgrade_install_mode.yaml`
+3. **Note:** For IOS-XE 16.12 and later only
+
+### 4. Post-Upgrade Verification (`03_upgrade_post_check.yaml`)
+
+**Purpose:** Validates successful upgrade and system health
+
+**Key Tasks:**
+- Verifies new IOS version is running
+- Checks device stability metrics
+- Validates interface status
+- Confirms routing protocol operation
+- Generates comprehensive post-upgrade report
+- (To be fully implemented)
+
+**AAP Job Template Setup:**
+
+1. **Name:** `Cisco IOS - Post-Upgrade Check`
+2. **Playbook:** `03_upgrade_post_check.yaml`
+3. **Execute:** After device reload (manual or scheduled)
+
+### 5. Device Information Gathering (`playbook.yaml`)
+
+**Purpose:** Collects comprehensive device inventory and facts
+
+**Key Tasks:**
+- Gathers detailed hardware facts
+- Collects software version information
+- Displays device model, serial number, uptime
 - Shows running configuration
-- Lists interface status
-- Displays VLAN information
+- Lists interface status and VLAN information
+- Generates device inventory report
 
-**AWX Setup:**
-1. Create Job Template: `Cisco Device Information`
-2. Playbook: `playbook.yaml`
-3. Inventory: Select your Cisco devices inventory
-4. Credentials: Device machine credential
+**AAP Job Template Setup:**
 
-## Complete Upgrade Workflow in AWX
+1. **Name:** `Cisco Device Information`
+2. **Playbook:** `playbook.yaml`
+3. **Inventory:** `Cisco Network Devices`
+4. **Purpose:** Pre-upgrade data collection for change documentation
 
-### Initial AWX Setup
+## Recommended Workflow in Ansible Automation Platform
 
-1. **Create Project:**
-   - Name: `Cisco IOS Upgrade`
-   - SCM Type: Git (or Manual if using local files)
-   - SCM URL: Your repository URL
-   - Project Path: `/var/lib/awx/projects/network_project`
+### Pre-Upgrade Phase
 
-2. **Create Inventory:**
-   - Add your Cisco devices as hosts
-   - Configure group variables for cisco_devices group
+1. **Create Change Request** - Document upgrade plan with business justification
+2. **Run Device Information Job** - Collect baseline inventory and facts
+   - Template: `Cisco Device Information`
+   - Purpose: Establish pre-upgrade state for comparison
+   - Output: Screenshot/export for change documentation
 
-3. **Create Credentials:**
-   - Device SSH credential (Machine type)
-   - SCP server credential (if needed)
+3. **Execute Pre-Upgrade Check** - Validate readiness and prepare image
+   - Template: `Cisco IOS - Pre-Upgrade Check`
+   - Input: SCP server details, target image version, MD5 hash
+   - Verify: Image copied successfully, MD5 validated, memory sufficient
 
-4. **Create Job Templates** (see individual playbook sections above)
+### Upgrade Phase
 
-### Step-by-Step Execution
+4. **Run Upgrade Execution** - Back up configuration and prepare for reload
+   - Template: `Cisco IOS - Upgrade (Bundle Mode)` or `(Install Mode)`
+   - Input: Same SCP credentials, image name
+   - Result: Configuration backed up, boot system configured
 
-1. **Pre-flight checks:**
-   - Launch Job Template: `Cisco Device Information`
-   - Review device facts and current state
+5. **Manual Device Reload** (if not automated)
+   - SSH to device and execute: `reload in 5`
+   - Monitor device during boot process
+   - Confirm reload completion (5-15 minutes typical)
 
-2. **Run pre-upgrade checks:**
-   - Launch Job Template: `Cisco IOS Pre-Upgrade Check`
-   - Provide Extra Variables (scp_server, new_ios_version, etc.)
-   - Verify image copy and MD5 validation successful
+### Post-Upgrade Phase
 
-3. **Execute upgrade:**
-   - Launch Job Template: `Cisco IOS Upgrade Execution`
-   - Configuration backup will be created
-   - Boot variable will be set to new image
+6. **Run Post-Upgrade Check** - Validate successful upgrade
+   - Template: `Cisco IOS - Post-Upgrade Check`
+   - Wait time: 5 minutes after device reload
+   - Verify: Correct version running, interfaces up, protocols converged
 
-4. **Manually reload devices:**
-   - SSH to each device and execute: `reload in 1`
-   - Or create a separate Job Template with reload command
+7. **Collect Post-Upgrade Data** - Document successful state
+   - Template: `Cisco Device Information`
+   - Purpose: Compare with pre-upgrade baseline
+   - Document: Verify expected configuration retained
 
-5. **Verify upgrade (after reload):**
-   - Launch Job Template: `Cisco IOS Post-Upgrade Check`
-   - Verify new version is running
+8. **Close Change Request** - Update tracking with completion status
 
-### Using AWX Surveys
+### Key Workflow Features
 
-Create a Survey for your Job Template to make variable input easier:
+- **Job Scheduling:** AAP supports scheduled upgrades during maintenance windows
+- **Approval Gates:** Configure workflow approval before each phase
+- **Notifications:** Email/Slack alerts on job completion/failure
+- **RBAC:** Role-based access control for operator authorization
+- **Audit Trail:** Complete job history and execution logs for compliance
 
-**Survey Questions:**
-- SCP Server IP
-- SCP Username
-- SCP Password (password type)
-- New IOS Version
-- New Image Name
-- MD5 Checksum
+## Enterprise Features
 
-This allows operators to launch jobs without manually editing Extra Variables.
+### Safety Mechanisms
 
-## Safety Features
+- **Version Detection:** Prevents upgrade if target version already running
+- **Memory Validation:** Enforces 2GB minimum free flash space requirement
+- **Image Integrity:** Mandatory MD5 checksum validation
+- **Configuration Protection:** Automatic timestamped backup before changes
+- **Idempotent Checks:** Image copy skipped if already present on device
+- **Boot Register Validation:** Ensures correct ROMMON boot configuration
+- **Error Handling:** Comprehensive error recovery and rollback capability
 
-- **Version Check:** Prevents upgrade if current version matches target
-- **Memory Validation:** Ensures sufficient flash space (2GB minimum)
-- **Image Verification:** MD5 checksum validation
-- **Configuration Backup:** Automatic backup before changes
-- **Duplicate Prevention:** Skips image copy if already present
-- **Register Validation:** Ensures proper boot configuration
+### Scalability & Operations
 
-## Troubleshooting
+- **Multi-Device Upgrade:** Supports orchestrated upgrades across device groups
+- **Parallelization:** Configure job template for serial or batch execution
+- **Progress Tracking:** Real-time job output streaming in AAP UI
+- **Execution Environments:** Custom EE support for specialized requirements
+- **Logging & Audit:** Complete execution logs for compliance and troubleshooting
+- **Notification Integration:** Slack/Email alerts for operational awareness
 
-### Common Issues
+### Troubleshooting Guide
 
-**Issue:** Insufficient memory error
-```
-Solution: Free up flash space by deleting old images
-```
+| Issue | Root Cause | Solution |
+|-------|-----------|----------|
+| Insufficient memory error | Flash space < 2GB | Use `delete flash:` to remove old images |
+| SCP transfer timeout | Network connectivity | Verify SCP server reachability, check firewall rules |
+| MD5 verification failed | Image corruption | Re-download image from Cisco, verify checksum |
+| Device SSH unreachable | Connectivity/credentials | Verify `ansible_host`, username, password, enable secret |
+| Image not found after copy | Interrupted transfer | Check device connectivity, retry with increased timeout |
+| Configuration register mismatch | Boot configuration issue | Manually verify `show version \| i register` output |
+| Reload failed | ROMMON issues | Requires console access for manual intervention |
 
-**Issue:** SCP transfer fails
-```
-Solution: Verify SCP server connectivity and credentials
-         Check firewall rules
-```
+### Network Requirements Checklist
 
-**Issue:** MD5 verification fails
-```
-Solution: Verify MD5 hash is correct
-         Re-download image from Cisco
-         Check for corruption during transfer
-```
-
-**Issue:** Device not accessible
-```
-Solution: Verify SSH connectivity
-         Check ansible_host, ansible_user, ansible_password
-         Ensure enable password is configured if required
-```
-
-## Best Practices
-
-1. **Test in lab environment first**
-2. **Schedule maintenance windows**
-3. **Verify backups before upgrade**
-4. **Upgrade one device at a time in production**
-5. **Keep rollback images on device**
-6. **Document device configurations**
-7. **Have console access available**
-8. **Monitor device during upgrade**
-
-## Security Considerations
-
-- **Store credentials in AWX:** Use AWX Credentials feature for sensitive data
-- **Use RBAC:** Configure role-based access control in AWX
-- **Restrict SCP server access:** Limit network access to SCP server
-- **Enable job auditing:** Review AWX job history and logs
-- **Secure AWX instance:** Keep AWX updated and properly secured
-- **Use SSH keys:** Configure SSH key-based authentication when possible
-
-### AWX Credentials Management
-
-1. **Create Custom Credential Type** for SCP variables:
-   - Input Configuration:
-     ```yaml
-     fields:
-       - id: scp_server
-         type: string
-         label: SCP Server
-       - id: scp_username
-         type: string
-         label: SCP Username
-       - id: scp_password
-         type: string
-         label: SCP Password
-         secret: true
-     ```
-   - Injector Configuration:
-     ```yaml
-     extra_vars:
-       scp_server: '{{ scp_server }}'
-       scp_username: '{{ scp_username }}'
-       scp_password: '{{ scp_password }}'
-     ```
-
-2. **Attach credential to Job Template** to avoid exposing passwords in Extra Variables
+- [ ] SSH access to all devices on TCP 22
+- [ ] SCP server accessibility (TCP 22)
+- [ ] Execution node network connectivity verified
+- [ ] Firewall rules allow AAP-to-device communication
+- [ ] Each device has minimum 2GB free flash space
+- [ ] Device enable passwords configured (if RBAC in use)
+- [ ] NTP synchronized for accurate logging (recommended)
+- [ ] Console access available (for emergency recovery)
 
 ## Support & Compatibility
 
 **Tested On:**
 - Cisco Catalyst 9300 Series
 - Cisco ISR 4000 Series
-- IOS-XE 16.x and 17.x
+- Cisco ASR Series
+- IOS-XE 16.x, 17.x, and later
 
-**AWX Version:** 19.0+
+**Platform Requirements:**
+- **AAP Version:** 2.0+ (formerly Ansible Tower)
+- **Ansible Version:** 2.9+
+- **Collection Versions:** cisco.ios 4.0+
+- **Python:** 3.8+ on execution nodes
 
-**Ansible Version:** 2.9+
+**Network Support:**
+- IPv4 device management
+- SSH-based access (network_cli connection)
+- Cisco network_os drivers
 
-**Collection Version:** cisco.ios 4.0+
+## Additional Resources
 
-## License
-
-This project is provided as-is for network automation purposes.
+- [Cisco IOS Documentation](https://www.cisco.com/c/en/us/support/ios-nx-os-software/ios-software/products.html)
+- [Ansible Automation Platform Documentation](https://access.redhat.com/documentation/en-us/red_hat_ansible_automation_platform/)
+- [Ansible Cisco iOS Collection](https://github.com/ansible-collections/cisco.ios)
+- [Network Best Practices Guide](https://docs.ansible.com/ansible/latest/network/index.html)
 
 ## Contributing
 
-Feel free to submit issues, fork the repository, and create pull requests for any improvements.
+This project is designed to be extended and customized for specific environments:
 
-## Author
+- **Submit Issues:** Report bugs or feature requests via project issue tracker
+- **Contribute:** Submit pull requests for improvements, bug fixes, or new features
+- **Feedback:** Share deployment experiences and recommendations
+- **Documentation:** Help improve playbook documentation and examples
 
-Network Automation Team
+## License
+
+This project is provided as-is for enterprise network automation purposes. Modify and distribute according to your organization's policies.
+
+## Author & Support
+
+**Network Automation Team**
+
+For support, questions, or customization needs, contact your network operations team or infrastructure automation group.
 
 ---
 
-**Last Updated:** December 2025
+**Project Status:** Active Development  
+**Last Updated:** December 2025  
+**Version:** 2.0  
+**Ansible Automation Platform Certified:** Yes

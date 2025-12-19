@@ -62,7 +62,7 @@
         lines:
           - "no boot system"
           - "boot system flash:{{ new_ios_image }}"
-        save_when: always
+        save_when: modified
 
     - name: Show boot current setup
       cisco.ios.ios_command:
@@ -95,3 +95,12 @@
       debug:
         msg: 
           - "New IOS Version: {{ ios_version }}"
+
+    - name: Check if versions are as expected
+      ansible.builtin.assert:
+        that:
+          - "'{{ new_ios_version }}' == '{{ ios_version }}'"
+        fail_msg: "IOS version after upgrade does not match expected version."
+        success_msg: "IOS version after upgrade matches expected version."
+
+

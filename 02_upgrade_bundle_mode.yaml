@@ -21,7 +21,6 @@
       debug:
         var: ansible_date_time
 
-
     - name: Backup configuration before upgrade
       cisco.ios.ios_command:
         commands: 

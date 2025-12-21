@@ -77,9 +77,10 @@
     - name: Save stats to worflow
       ansible.builtin.set_stats:
         data:
-          snapshot_networks: "{{ pre_total_networks }}"
-          snapshot_subnets: "{{ pre_total_subnets }}"
-        per_host: yes
+          workflow_networks: "{{ workflow_networks | default({}) | combine({ inventory_hostname: pre_total_networks }) }}"
+          workflow_subnets: "{{ workflow_subnets | default({}) | combine({ inventory_hostname: pre_total_subnets }) }}"
+        per_host: no
+
 
 
     - name: Check current register status

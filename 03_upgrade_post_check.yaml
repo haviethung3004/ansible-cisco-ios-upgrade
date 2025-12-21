@@ -33,6 +33,27 @@
       debug:
         var: uptime_result.stdout_lines
 
+    - name: Get interface status after upgrade
+      cisco.ios.ios_command:
+        commands: "show ip interface brief"
+      register: post_interface_status
+    
+    - name: get post check interface up count
+      cisco.ios.ios_command:
+        commands: "show ip interface brief | count up"
+      register: post_interface_up_raw
+
+    - name: Set fact for interface up count
+      ansible.builtin.set_fact:
+        post_interface_up_count: "{{ (post_interface_up_raw.stdout[0] | regex_search('\\d+$') | int) }}"
+
+    - name: Compare Interface Up Count before and after upgrade
+      ansible.builtin.assert:
+        that:
+          - "{{ post_interface_up_count == workflow_interface_up_count[inventory_hostname] }}"
+        fail_msg: "Number of interfaces in 'up' state has changed after upgrade."
+        success_msg: "Number of interfaces in 'up' state is consistent before and after upgrade."
+
     - name: Get IP Routing Table Summary after upgrade
       cisco.ios.ios_command:
         commands: "show ip route summary"

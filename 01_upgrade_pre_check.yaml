@@ -54,6 +54,35 @@
           debug:
             msg: "Warning: Available memory is less than required for the new image. Please free up space and try again."
 
+
+    - name: get pre check interface status
+      cisco.ios.ios_command:
+        commands: "show ip interface brief"
+      register: pre_interface_status
+    
+    - name: Display Interface Status
+      debug:
+        var: pre_interface_status.stdout_lines
+
+    - name: get pre check interface up count
+      cisco.ios.ios_command:
+        commands: "show ip interface brief | count up"
+      register: pre_interface_up_raw
+
+    - name: Display Interface Up count
+      debug:
+        var: pre_interface_up_raw.stdout_lines
+
+    - name: Set fact for interface up count
+      ansible.builtin.set_fact:
+        pre_interface_up_count: "{{ (pre_interface_up_raw.stdout[0] | regex_search('\\d+$') | int) }}"
+
+    - name: Save stats to worflow
+      ansible.builtin.set_stats:
+        data:
+          workflow_interface_up_count: "{{ workflow_interface_up_count | default({}) | combine({ inventory_hostname: pre_interface_up_count }) }}"
+        per_host: no
+
     - name: Get IP Routing Table Summary
       cisco.ios.ios_command:
         commands: "show ip route summary"

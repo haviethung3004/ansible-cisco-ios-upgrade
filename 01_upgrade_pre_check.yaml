@@ -54,6 +54,34 @@
           debug:
             msg: "Warning: Available memory is less than required for the new image. Please free up space and try again."
 
+    - name: Get IP Routing Table Summary
+      cisco.ios.ios_command:
+        commands: "show ip route summary"
+      register: pre_route_raw
+
+    - name: Display IP Routing Table Summary
+      debug:
+        var: pre_route_raw.stdout_lines
+
+    - name: Extract Total Routes (Networks + Subnets)
+      ansible.builtin.set_fact:
+        pre_total_networks: "{{ (pre_route_raw.stdout[0] | regex_search('Total.*') | split)[1] }}"
+        pre_total_subnets: "{{ (pre_route_raw.stdout[0] | regex_search('Total.*') | split)[2] }}"
+
+    - name: Display Total Networks and Subnets
+      debug:
+        msg:
+          - "Total Networks: {{ pre_total_networks }}"
+          - "Total Subnets: {{ pre_total_subnets }}"
+
+    - name: Save stats to worflow
+      ansible.builtin.set_stats:
+        data:
+          snapshot_networks: "{{ pre_total_networks }}"
+          snapshot_subnets: "{{ pre_total_subnets }}"
+        per_host: yes
+
+
     - name: Check current register status
       cisco.ios.ios_command:
         commands:

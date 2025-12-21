@@ -33,4 +33,30 @@
       debug:
         var: uptime_result.stdout_lines
 
-    
+    - name: Get IP Routing Table Summary after upgrade
+      cisco.ios.ios_command:
+        commands: "show ip route summary"
+      register: post_route_raw
+
+    - name: Display IP Routing Table Summary
+      debug:
+        var: post_route_raw.stdout_lines
+
+    - name: Extract Total Routes (Networks + Subnets)
+      ansible.builtin.set_fact:
+        post_total_networks: "{{ (post_route_raw.stdout[0] | regex_search('Total.*') | split)[1] }}"
+        post_total_subnets: "{{ (post_route_raw.stdout[0] | regex_search('Total.*') | split)[2] }}"
+
+    - name: Compare Total Networks before and after upgrade
+      ansible.builtin.assert:
+        that:
+          - "{{ post_total_networks == pre_total_networks }}"
+        fail_msg: "Total networks count has changed after upgrade."
+        success_msg: "Total networks count is consistent before and after upgrade."
+
+    - name: Compare Total Subnets before and after upgrade
+      ansible.builtin.assert:
+        that:
+          - "{{ post_total_subnets == pre_total_subnets }}"
+        fail_msg: "Total subnets count has changed after upgrade."
+        success_msg: "Total subnets count is consistent before and after upgrade."

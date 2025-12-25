@@ -1,9 +1,9 @@
 ---
-- name: Upgrade Pre-Check Playbook for Cisco IOS and IOS-XE Devices
+- name: Upgrade Install Mode IOS XE Device
   hosts: all
-  gather_facts: no
+  gather_facts: yes
   vars:
-    ansible_command_timeout: 1800
+    ansible_command_timeout: 30
     scp_server: "{{ scp_server }}"
     scp_username: "{{ scp_username }}"
     scp_password: "{{ scp_password }}"
@@ -12,20 +12,102 @@
     new_image_md5: "{{ new_image_md5 }}"
     
   tasks:
+    - name: Collect facts to get system information
+      ansible.builtin.setup:
+        filter:
+          - ansible_date_time
+
+    - name: Display collected facts
+      debug:
+        var: ansible_date_time
+
     - name: Backup configuration before upgrade
-      cisco.ios.ios_config:
-        backup: yes
-        backup_options:
-          dir_path: "{{ playbook_dir }}"
-          filename: "backup_{{ inventory_hostname }}_config_{{ lookup('pipe', 'date +%Y%m%d_%H%M%S') }}.cfg"
+      cisco.ios.ios_command:
+        commands: 
+          - command: copy running-config startup-config
+            prompt: 'Destination filename \[startup-config\]?'
+            answer: "\n"
       register: backup_result
 
-    - name: Display backup result
+    - name: set backup result fact
+      ansible.builtin.set_fact:
+        backup_result_suceess: "{{ backup_result['stdout_lines'][0][2] }}"
+
+    - name: Send configuration backup to SCP server
+      cisco.ios.ios_command:
+        commands:
+          - command: "copy startup-config scp://{{ scp_username }}:{{ scp_password }}@{{ scp_server }}/{{ inventory_hostname }}_config_{{ ansible_date_time.date }}.cfg\r\r\r"
+            prompt: 
+              - 'Address or name of remote host .*'
+              - 'Destination username .*'
+              - 'Destination filename .*'
+            answer: 
+              - "\r"
+      register: scp_backup_result
+
+    - name: Display SCP backup result
       debug:
-        var: backup_result['backup_path']
+        var: scp_backup_result
+
+    - name: Check backup success
+      ansible.builtin.assert:
+        that:
+          - "{{'[OK]' in  backup_result_suceess }}"
+        fail_msg: "Configuration backup failed. Aborting upgrade process."
+        success_msg: "Configuration backup successful."
+
+    - name: One Step Installation
+      cisco.ios.ios_command:
+        commands:
+          - command: install add file flash:/{{ new_ios_image }} activate commit
+            prompt:
+              - 'This operation may require a reload of the system.*'
+            answer:
+              - 'y'
     
-    - name: use scp to transfer backup to scp server
-      ansible.builtin.command:
-        cmd: sshpass -p '{{ scp_password }}' scp -o StrictHostKeyChecking=no {{ backup_result['backup_path'] }} {{ scp_username }}@{{ scp_server }}:backups/
-      delegate_to: localhost
-      no_log: true
+    - name: Wait for 10 minutes and retry connection
+      ansible.builtin.wait_for_connection:
+        delay: 600
+        timeout: 1800
+        sleep: 30
+
+    - name: Show install summary
+      cisco.ios.ios_command:
+        commands:
+          - show install summary
+      register: install_summary
+
+    
+    - name: Display and verify if installation was successful
+      ansible.builtin.assert:
+        that:
+          - " {{ new_ios_version in install_summary.stdout[0] }}"
+        fail_msg: "IOS XE installation failed or version mismatch."
+        success_msg: "IOS XE installation successful and version verified."
+
+
+    - name: show install activate
+      cisco.ios.ios_command:
+        commands:
+          - show install activate
+      register: install_activate
+
+    - name: Display and verify if installation is activated
+      ansible.builtin.assert:
+        that:
+          - "{{ new_ios_version in install_activate.stdout[0] }}"
+        fail_msg: "IOS XE installation activation failed."
+        success_msg: "IOS XE installation activated successfully."
+
+    - name: show install committed
+      cisco.ios.ios_command:
+        commands:
+          - show install committed
+      register: install_committed
+
+    - name: Display and verify if installation is committed
+      ansible.builtin.assert:
+        that:
+          - "{{ new_ios_version in install_committed.stdout[0] }}"
+        fail_msg: "IOS XE installation commit failed."
+        success_msg: "IOS XE installation committed successfully."

@@ -48,7 +48,7 @@
       block:
         - ansible.builtin.fail:
             msg: "Insufficient memory: Available memory is {{ avl_mem }} KB, which is less than required for new image."
-          when: avl_mem | int < 2000000  # Assuming 2GB is required for the new image
+          when: avl_mem | int < 2000000
       rescue:
         - name: Display insufficient memory warning
           debug:

@@ -3,7 +3,7 @@
   hosts: all
   gather_facts: yes
   vars:
-    ansible_command_timeout: 600
+    ansible_command_timeout: 7200
     scp_server: "{{ scp_server }}"
     scp_username: "{{ scp_username }}"
     scp_password: "{{ scp_password }}"
@@ -67,10 +67,6 @@
       cisco.ios.ios_command:
         commands:
           - command: install add file flash:/{{ new_ios_image }}
-            prompt:
-              - 'This operation may require a reload of the system.*'
-            answer:
-              - 'y'
       when: new_ios_version not in install_summary.stdout[0]
 
     - name: Show install summary
@@ -87,12 +83,21 @@
         fail_msg: "IOS XE installation failed or version mismatch."
         success_msg: "IOS XE installation successful and version verified."
 
+
+    - name: show install activate
+      cisco.ios.ios_command:
+        commands:
+          - show install activate
+      register: install_activate
+
+
     - name: Activate new IOS image
       cisco.ios.ios_command:
         commands:
           - command: install activate
             prompt: 'This operation may require a reload of the system.*'
             answer: 'y'
+      when: new_ios_version not in install_activate.stdout[0]
 
 
     - name: Wait for 10 minutes and retry connection

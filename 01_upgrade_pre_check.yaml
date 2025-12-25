@@ -197,7 +197,7 @@
     - name: Compare MD5 checksum
       ansible.builtin.assert:
         that:
-          - "{{ caculated_md5_hash[1] == new_image_md5 }}"
+          - " caculated_md5_hash[1] == new_image_md5 "
         fail_msg: "MD5 checksum verification failed. The image may be corrupted."
         success_msg: "MD5 checksum verification successful. The image is valid."
     

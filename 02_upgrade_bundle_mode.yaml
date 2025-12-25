@@ -52,7 +52,7 @@
     - name: Check backup success
       ansible.builtin.assert:
         that:
-          - "{{'[OK]' in  backup_result_suceess }}"
+          - "'[OK]' in  backup_result_suceess "
         fail_msg: "Configuration backup failed. Aborting upgrade process."
         success_msg: "Configuration backup successful."
 
@@ -98,7 +98,7 @@
     - name: Check if versions are as expected
       ansible.builtin.assert:
         that:
-          - "{{ new_ios_version == ios_version }}"
+          - " new_ios_version == ios_version "
         fail_msg: "IOS version after upgrade does not match expected version."
         success_msg: "IOS version after upgrade matches expected version."
 

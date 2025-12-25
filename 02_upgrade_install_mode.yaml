@@ -3,7 +3,7 @@
   hosts: all
   gather_facts: yes
   vars:
-    ansible_command_timeout: 30
+    ansible_command_timeout: 600
     scp_server: "{{ scp_server }}"
     scp_username: "{{ scp_username }}"
     scp_password: "{{ scp_password }}"
@@ -52,24 +52,26 @@
     - name: Check backup success
       ansible.builtin.assert:
         that:
-          - "{{'[OK]' in  backup_result_suceess }}"
+          - "'[OK]' in  backup_result_suceess "
         fail_msg: "Configuration backup failed. Aborting upgrade process."
         success_msg: "Configuration backup successful."
 
-    - name: One Step Installation
+    - name: Show install summary
       cisco.ios.ios_command:
         commands:
-          - command: install add file flash:/{{ new_ios_image }} activate commit
+          - show install summary
+      register: install_summary
+
+
+    - name: Add new IOS image - install mode
+      cisco.ios.ios_command:
+        commands:
+          - command: install add file flash:/{{ new_ios_image }}
             prompt:
               - 'This operation may require a reload of the system.*'
             answer:
               - 'y'
-    
-    - name: Wait for 10 minutes and retry connection
-      ansible.builtin.wait_for_connection:
-        delay: 600
-        timeout: 1800
-        sleep: 30
+      when: new_ios_version not in install_summary.stdout[0]
 
     - name: Show install summary
       cisco.ios.ios_command:
@@ -80,11 +82,24 @@
     
     - name: Display and verify if installation was successful
       ansible.builtin.assert:
-        that:
-          - " {{ new_ios_version in install_summary.stdout[0] }}"
+        that: 
+          - " new_ios_version in install_summary.stdout[0] "
         fail_msg: "IOS XE installation failed or version mismatch."
         success_msg: "IOS XE installation successful and version verified."
 
+    - name: Activate new IOS image
+      cisco.ios.ios_command:
+        commands:
+          - command: install activate
+            prompt: 'This operation may require a reload of the system.*'
+            answer: 'y'
+
+
+    - name: Wait for 10 minutes and retry connection
+      ansible.builtin.wait_for_connection:
+        delay: 600
+        timeout: 1800
+        sleep: 30
 
     - name: show install activate
       cisco.ios.ios_command:
@@ -95,9 +110,15 @@
     - name: Display and verify if installation is activated
       ansible.builtin.assert:
         that:
-          - "{{ new_ios_version in install_activate.stdout[0] }}"
+          - new_ios_version in install_activate.stdout[0]
         fail_msg: "IOS XE installation activation failed."
         success_msg: "IOS XE installation activated successfully."
+
+
+    - name: Commit new image
+      cisco.ios.ios_command:
+        commands:
+          - command: install commit
 
     - name: show install committed
       cisco.ios.ios_command:
@@ -108,6 +129,6 @@
     - name: Display and verify if installation is committed
       ansible.builtin.assert:
         that:
-          - "{{ new_ios_version in install_committed.stdout[0] }}"
+          - new_ios_version in install_committed.stdout[0]
         fail_msg: "IOS XE installation commit failed."
         success_msg: "IOS XE installation committed successfully."

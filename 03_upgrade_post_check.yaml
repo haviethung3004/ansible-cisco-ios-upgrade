@@ -19,7 +19,7 @@
     - name: Validate IOS version
       ansible.builtin.assert:
         that:
-          - "{{ post_upgrade_facts.ansible_facts.ansible_net_version == new_ios_version }}"
+          - " post_upgrade_facts.ansible_facts.ansible_net_version == new_ios_version "
         fail_msg: "IOS version after upgrade does not match expected version."
         success_msg: "IOS version after upgrade matches expected version."
 
@@ -50,7 +50,7 @@
     - name: Compare Interface Up Count before and after upgrade
       ansible.builtin.assert:
         that:
-          - "{{ post_interface_up_count == workflow_interface_up_count[inventory_hostname] }}"
+          - " post_interface_up_count == workflow_interface_up_count[inventory_hostname] "
         fail_msg: "Number of interfaces in 'up' state has changed after upgrade."
         success_msg: "Number of interfaces in 'up' state is consistent before and after upgrade."
 
@@ -71,13 +71,13 @@
     - name: Compare Total Networks before and after upgrade
       ansible.builtin.assert:
         that:
-          - "{{ post_total_networks == workflow_networks[inventory_hostname] }}"
+          - " post_total_networks == workflow_networks[inventory_hostname] "
         fail_msg: "Total networks count has changed after upgrade."
         success_msg: "Total networks count is consistent before and after upgrade."
 
     - name: Compare Total Subnets before and after upgrade
       ansible.builtin.assert:
         that:
-          - "{{ post_total_subnets == workflow_subnets[inventory_hostname] }}"
+          - " post_total_subnets == workflow_subnets[inventory_hostname] "
         fail_msg: "Total subnets count has changed after upgrade."
         success_msg: "Total subnets count is consistent before and after upgrade."

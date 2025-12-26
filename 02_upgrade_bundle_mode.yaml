@@ -27,16 +27,11 @@
           - command: copy running-config startup-config
             prompt: 'Destination filename \[startup-config\]?'
             answer: "\n"
-      register: backup_result
-
-    - name: set backup result fact
-      ansible.builtin.set_fact:
-        backup_result_suceess: "{{ backup_result['stdout_lines'][0][2] }}"
 
     - name: Send configuration backup to SCP server
       cisco.ios.ios_command:
         commands:
-          - command: "copy startup-config scp://{{ scp_username }}:{{ scp_password }}@{{ scp_server }}/backups/{{ inventory_hostname }}_config_{{ ansible_date_time.date }}.cfg\r\r\r"
+          - command: "copy startup-config scp://{{ scp_username }}:{{ scp_password }}@{{ scp_server }}/backups/{{ inventory_hostname }}_config_{{ ansible_date_time.iso8601 | replace(':', '-') }}.cfg\r\r\r"
             prompt: 
               - 'Address or name of remote host .*'
               - 'Destination username .*'
@@ -52,7 +47,7 @@
     - name: Check backup success
       ansible.builtin.assert:
         that:
-          - "'[OK]' in  backup_result_suceess "
+          - "'bytes copied' in  scp_backup_result.stdout[0] "
         fail_msg: "Configuration backup failed. Aborting upgrade process."
         success_msg: "Configuration backup successful."
 

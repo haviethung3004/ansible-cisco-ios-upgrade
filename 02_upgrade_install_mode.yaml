@@ -36,7 +36,7 @@
     - name: Send configuration backup to SCP server
       cisco.ios.ios_command:
         commands:
-          - command: "copy startup-config scp://{{ scp_username }}:{{ scp_password }}@{{ scp_server }}/{{ inventory_hostname }}_config_{{ ansible_date_time.date }}.cfg\r\r\r"
+          - command: "copy startup-config scp://{{ scp_username }}:{{ scp_password }}@{{ scp_server }}/{{ inventory_hostname }}_config_{{ ansible_date_time.iso8601 }}.cfg\r\r\r"
             prompt: 
               - 'Address or name of remote host .*'
               - 'Destination username .*'
@@ -74,30 +74,29 @@
         commands:
           - show install summary
       register: install_summary
-
     
     - name: Display and verify if installation was successful
       ansible.builtin.assert:
         that: 
-          - " new_ios_version in install_summary.stdout[0] "
+          - "new_ios_version in install_summary.stdout[0] "
         fail_msg: "IOS XE installation failed or version mismatch."
         success_msg: "IOS XE installation successful and version verified."
 
 
-    - name: show install activate
+    - name: show install active
       cisco.ios.ios_command:
         commands:
-          - show install activate
-      register: install_activate
+          - show install active
+      register: install_active
 
 
-    - name: Activate new IOS image
+    - name: activate new IOS image
       cisco.ios.ios_command:
         commands:
           - command: install activate
             prompt: 'This operation may require a reload of the system.*'
             answer: 'y'
-      when: new_ios_version not in install_activate.stdout[0]
+      when: new_ios_version not in install_active.stdout[0]
 
 
     - name: Wait for 10 minutes and retry connection
@@ -106,18 +105,18 @@
         timeout: 1800
         sleep: 30
 
-    - name: show install activate
+    - name: show install active
       cisco.ios.ios_command:
         commands:
-          - show install activate
-      register: install_activate
+          - show install active
+      register: install_active
 
-    - name: Display and verify if installation is activated
+    - name: Display and verify if installation is actived
       ansible.builtin.assert:
         that:
-          - new_ios_version in install_activate.stdout[0]
+          - new_ios_version in install_active.stdout[0]
         fail_msg: "IOS XE installation activation failed."
-        success_msg: "IOS XE installation activated successfully."
+        success_msg: "IOS XE installation actived successfully."
 
 
     - name: Commit new image

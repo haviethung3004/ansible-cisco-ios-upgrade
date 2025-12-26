@@ -36,7 +36,7 @@
     - name: Send configuration backup to SCP server
       cisco.ios.ios_command:
         commands:
-          - command: "copy startup-config scp://{{ scp_username }}:{{ scp_password }}@{{ scp_server }}/{{ inventory_hostname }}_config_{{ ansible_date_time.date }}.cfg\r\r\r"
+          - command: "copy startup-config scp://{{ scp_username }}:{{ scp_password }}@{{ scp_server }}/backups/{{ inventory_hostname }}_config_{{ ansible_date_time.date }}.cfg\r\r\r"
             prompt: 
               - 'Address or name of remote host .*'
               - 'Destination username .*'

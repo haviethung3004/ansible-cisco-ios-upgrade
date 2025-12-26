@@ -71,10 +71,11 @@
             prompt: 'confirm'
             answer: 'y'
 
-    - name: Pause for 10 minutes to allow device to reload
-      ansible.builtin.pause:
-        minutes: 10
-        prompt: "Waiting for device to reload. Press ENTER to continue earlier if device is back online."
+    - name: Wait for 10 minutes and retry connection
+      ansible.builtin.wait_for_connection:
+        delay: 600
+        timeout: 1800
+        sleep: 60
 
     - name: Get all elements hardware device
       cisco.ios.ios_facts:

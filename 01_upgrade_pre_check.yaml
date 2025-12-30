@@ -3,13 +3,14 @@
   hosts: all
   gather_facts: no
   vars:
-    ansible_command_timeout: 10800
+    ansible_command_timeout: "{{ ansible_command_timeout }}"
     scp_server: "{{ scp_server }}"
     scp_username: "{{ scp_username }}"
     scp_password: "{{ scp_password }}"
     new_ios_version: "{{ new_ios_version }}"
     new_ios_image: "{{ new_image_name }}"
     new_image_md5: "{{ new_image_md5 }}"
+    sufficient_memory_kb: "{{ sufficient_memory_kb }}"
 
   tasks:
     - name: Get all elements hardware device
@@ -36,9 +37,17 @@
         msg: "Current IOS version {{ current_ios_version }} is the same as the new version {{ new_ios_version }}. Upgrade not required."
       when: current_ios_version == new_ios_version
 
+    - name: Detect primary filesystem
+      ansible.builtin.set_fact:
+        primary_fs: "{{ pre_upgrade_facts['ansible_facts']['ansible_net_filesystems_info'].keys() | list | first }}"
+
+    - name: Display primary filesystem
+      debug:
+        msg: "Primary Filesystem: {{ primary_fs }}"
+        
     - name: Check available memory
       ansible.builtin.set_fact:
-        avl_mem: "{{ pre_upgrade_facts['ansible_facts']['ansible_net_filesystems_info']['bootflash:']['spacefree_kb'] }}"
+        avl_mem: "{{ pre_upgrade_facts['ansible_facts']['ansible_net_filesystems_info'][primary_fs]['spacefree_kb'] }}"
 
     - name: Display available memory
       debug:
@@ -48,7 +57,7 @@
       block:
         - ansible.builtin.fail:
             msg: "Insufficient memory: Available memory is {{ avl_mem }} KB, which is less than required for new image."
-          when: avl_mem | int < 2000000
+          when: avl_mem | int < sufficient_memory_kb
       rescue:
         - name: Display insufficient memory warning
           debug:

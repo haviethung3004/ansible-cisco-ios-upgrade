@@ -58,12 +58,6 @@
           - "boot system flash:{{ new_ios_image }}"
         save_when: modified
 
-    - name: Show boot current setup
-      cisco.ios.ios_command:
-        commands:
-          - show boot
-      register: boot_config_result
-
     - name: Reloading the device to apply new boot system
       cisco.ios.ios_command:
         commands:

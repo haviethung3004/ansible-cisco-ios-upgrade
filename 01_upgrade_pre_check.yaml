@@ -154,7 +154,7 @@
         - name: Copy new IOS image to device using SCP
           cisco.ios.ios_command:
             commands:
-              - command: 'copy scp://{{ scp_username }}:{{ scp_password }}@{{ scp_server }}:{{ scp_port }}/{{ new_ios_image }} {{ primary_fs }}:/{{ new_ios_image }}'
+              - command: 'copy scp://{{ scp_username }}:{{ scp_password }}@{{ scp_server }}:{{ scp_port }}/{{ new_ios_image }} {{ primary_fs }}://{{ new_ios_image }}'
                 prompt: 'Destination filename \[{{ new_ios_image }}\]?'
                 answer: '{{ new_ios_image }}'
           register: image_copy_result

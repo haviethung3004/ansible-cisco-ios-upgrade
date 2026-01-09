@@ -136,11 +136,11 @@
       ansible.builtin.set_fact:
         current_register: "{{ reg_status.stdout[0].split()[-1] }}"
 
-    - name: Change to boot from flash if register is not 0x2102
+    - name: Change to boot from flash if register is not 0x2102 or 0x102
       cisco.ios.ios_config:
         lines:
           - config-register 0x2102
-      when: current_register != '0x2102'
+      when: current_register != '0x2102' and current_register != '0x102'
 
     - name: Check if new IOS image already exists on device
       cisco.ios.ios_command:

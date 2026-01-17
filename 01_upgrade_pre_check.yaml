@@ -55,15 +55,9 @@
         msg: "Available memory: {{ (avl_mem | int / 1024 / 1024) | round(2) }} GB"
 
     - name: Stop playbook if memory is insufficient for new image
-      block:
-        - ansible.builtin.fail:
-            msg: "Insufficient memory: Available memory is {{ avl_mem }} KB, which is less than required for new image."
-          when: avl_mem | int < sufficient_memory_kb
-      rescue:
-        - name: Display insufficient memory warning
-          debug:
-            msg: "Warning: Available memory is less than required for the new image. Please free up space and try again."
-
+      ansible.builtin.fail:
+        msg: "Insufficient memory: Available memory is {{ avl_mem }} KB, which is less than required for new image."
+      when: avl_mem | int < sufficient_memory_kb
 
     - name: get pre check interface status
       cisco.ios.ios_command:
@@ -136,11 +130,14 @@
       ansible.builtin.set_fact:
         current_register: "{{ reg_status.stdout[0].split()[-1] }}"
 
-    - name: Change to boot from flash if register is not 0x2102 or 0x102
+    - name: Change to boot from flash if register is not 0x2102 or 0x102 or 0xF
       cisco.ios.ios_config:
         lines:
           - config-register 0x2102
-      when: current_register != '0x2102' and current_register != '0x102'
+      when: 
+        - current_register != "0x2102"
+        - current_register != "0x102"
+        - current_register != "0xF"
 
     - name: Check if new IOS image already exists on device
       cisco.ios.ios_command:

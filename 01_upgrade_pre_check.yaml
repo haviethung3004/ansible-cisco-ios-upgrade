@@ -114,8 +114,6 @@
           workflow_subnets: "{{ workflow_subnets | default({}) | combine({ inventory_hostname: pre_total_subnets }) }}"
         per_host: no
 
-
-
     - name: Check current register status
       cisco.ios.ios_command:
         commands:

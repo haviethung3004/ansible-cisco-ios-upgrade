@@ -3,7 +3,7 @@
   hosts: all
   gather_facts: false
   vars:
-    ansible_command_timeout: 30
+    ansible_command_timeout: "{{ ansible_command_timeout }}"
     scp_server: "{{ scp_server }}"
     scp_username: "{{ scp_username }}"
     scp_password: "{{ scp_password }}"

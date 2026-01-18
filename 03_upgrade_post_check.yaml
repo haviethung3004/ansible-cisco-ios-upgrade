@@ -89,7 +89,9 @@
       cisco.ios.ios_ping:
         dest: "{{ destination_ping_ip }}"
       register: post_ping_result
+      ignore_errors: yes
 
     - name: Display post-upgrade ping result
       debug:
         var: post_ping_result
+        

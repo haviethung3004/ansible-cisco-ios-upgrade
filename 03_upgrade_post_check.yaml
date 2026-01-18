@@ -10,6 +10,9 @@
     new_ios_version: "{{ new_ios_version }}"
     new_ios_image: "{{ new_image_name }}"
     new_image_md5: "{{ new_image_md5 }}"
+    destination_ping_ip: "{{ destination_ping_ip }}"
+
+
   tasks:
     - name: Gather IOS version after upgrade
       cisco.ios.ios_facts:
@@ -81,3 +84,12 @@
           - " post_total_subnets == workflow_subnets[inventory_hostname] "
         fail_msg: "Total subnets count has changed after upgrade."
         success_msg: "Total subnets count is consistent before and after upgrade."
+
+    - name: Test reachability to Coreswitch after upgrade
+      cisco.ios.ios_ping:
+        dest: "{{ destination_ping_ip }}"
+      register: post_ping_result
+
+    - name: Display post-upgrade ping result
+      debug:
+        var: post_ping_result

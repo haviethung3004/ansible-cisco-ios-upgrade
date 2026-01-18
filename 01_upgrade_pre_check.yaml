@@ -12,6 +12,7 @@
     new_ios_image: "{{ new_image_name }}"
     new_image_md5: "{{ new_image_md5 }}"
     sufficient_memory_kb: "{{ sufficient_memory_kb }}"
+    destination_ping_ip: "{{ destination_ping_ip }}"
 
   tasks:
     - name: Get all elements hardware device
@@ -58,6 +59,15 @@
       ansible.builtin.fail:
         msg: "Insufficient memory: Available memory is {{ avl_mem }} KB, which is less than required for new image."
       when: avl_mem | int < sufficient_memory_kb
+
+    - name: Test reachability to Coreswitch
+      cisco.ios.ios_ping:
+        dest: "{{ destination_ping_ip }}"
+      register: ping_result
+
+    - name: Display ping result
+      debug:
+        var: ping_result
 
     - name: get pre check interface status
       cisco.ios.ios_command:
@@ -170,7 +180,7 @@
           register: post_copy_check
           ignore_errors: yes
         
-        - name: Diplay post copy check result
+        - name: Display post copy check result
           debug:
             var: post_copy_check
 

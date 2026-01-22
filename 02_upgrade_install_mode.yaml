@@ -4,6 +4,7 @@
   gather_facts: yes
   vars:
     ansible_command_timeout: "{{ ansible_command_timeout }}"
+    scp_port : "{{ scp_port }}"
     scp_server: "{{ scp_server }}"
     scp_username: "{{ scp_username }}"
     scp_password: "{{ scp_password }}"
@@ -31,7 +32,7 @@
     - name: Send configuration backup to SCP server
       cisco.ios.ios_command:
         commands:
-          - command: "copy startup-config scp://{{ scp_username }}:{{ scp_password }}@{{ scp_server }}/backups/{{ inventory_hostname }}_config_{{ ansible_date_time.iso8601 | replace(':', '-') }}.cfg\r\r\r"
+          - command: "copy startup-config scp://{{ scp_username }}:{{ scp_password }}@@{{ scp_server }}:{{ scp_port }}/backups/{{ inventory_hostname }}_config_{{ ansible_date_time.iso8601 | replace(':', '-') }}.cfg\r\r\r"
             prompt: 
               - 'Address or name of remote host .*'
               - 'Destination username .*'

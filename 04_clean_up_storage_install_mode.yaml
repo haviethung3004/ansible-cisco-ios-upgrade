@@ -1,0 +1,27 @@
+---
+- name: Clean up Storage for Cisco IOS
+  hosts: all
+  gather_facts: no
+
+  tasks:
+    - name: Get all elements hardware device
+      cisco.ios.ios_facts:
+        gather_subset: hardware
+      register: pre_upgrade_facts
+
+    - name: Display pre-upgrade facts
+      debug:
+        var: pre_upgrade_facts
+
+    - name: Clean up Storage for Cisco IOS
+      cisco.ios.ios_command:
+        commands:
+        - command: "install remove inactive"
+          prompt: "Do you want to remove the above files.*"
+          answer: "y"
+      register: cleanup_output
+      ignore_errors: yes
+
+    - name: Display cleanup output
+      debug:
+        var: cleanup_output

@@ -1,0 +1,27 @@
+---
+- name: Clean up Storage for Cisco IOS
+  hosts: all
+  gather_facts: no
+
+  tasks:
+    - name: Get all elements hardware device
+      cisco.ios.ios_facts:
+        gather_subset: hardware
+      register: pre_facts
+
+    - name: Display facts
+      debug:
+        var: pre_facts
+
+    - name: Save running configuration to startup configuration
+      cisco.ios.ios_command:
+        commands:
+        - command: "copy running-config startup-config"
+          prompt: "Destination filename.*"
+          answer: "startup-config"
+      register: save_output
+      ignore_errors: yes
+
+    - name: Display save output
+      debug:
+        var: save_output

@@ -1,5 +1,5 @@
 ---
-- name: Clean up Storage for Cisco IOS
+- name: Save Cisco IOS Configuration
   hosts: all
   gather_facts: no
 

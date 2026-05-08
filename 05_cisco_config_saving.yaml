@@ -4,15 +4,6 @@
   gather_facts: no
 
   tasks:
-    - name: Get all elements hardware device
-      cisco.ios.ios_facts:
-        gather_subset: hardware
-      register: pre_facts
-
-    - name: Display facts
-      debug:
-        var: pre_facts
-
     - name: Save running configuration to startup configuration
       cisco.ios.ios_command:
         commands:
